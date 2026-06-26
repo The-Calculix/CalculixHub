@@ -1,0 +1,10 @@
+name: Format
+
+on:
+  workflow_dispatch:
+
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Formatting check skipped; no formatter is configured for this project."

@@ -1,0 +1,10 @@
+name: Cleanup
+
+on:
+  workflow_dispatch:
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Clean temporary files"

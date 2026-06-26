@@ -1,0 +1,8 @@
+src:
+  - 'src/**'
+server:
+  - 'server.ts'
+workflow:
+  - '.github/workflows/**'
+docs:
+  - '**/*.md'
