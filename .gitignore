@@ -1,0 +1,36 @@
+# Dependencies
+node_modules/
+
+# Build output
+/dist/
+/build/
+/.vite/
+/.parcel-cache/
+/.turbo/
+
+# Test and coverage
+/coverage/
+*.lcov
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+*.log
+
+# OS/editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# TypeScript
+*.tsbuildinfo
