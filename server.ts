@@ -19,7 +19,7 @@ const __dirname = path.dirname(__filename);
 const app = express();
 app.use(express.json());
 
-const PORT = Number(process.env.PORT || '3000') || 3000;
+const PORT = Number(process.env.PORT || '8000') || 8000;
 
 // Lazy initialization of Gemini client
 let aiClient: GoogleGenAI | null = null;
@@ -552,7 +552,7 @@ async function startServer() {
   }
 
   app.listen(PORT, '0.0.0.0', () => {
-    console.log(`[Calculix Hub] Server running at http://0.0.0.0:${PORT}`);
+    console.log(`[Calculix Hub] Server running at http://localhost:${PORT}`);
   });
 }
 
