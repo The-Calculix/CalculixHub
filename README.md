@@ -1,6 +1,19 @@
 ## CalculixHub
 # How to run
 
+Install Git and Set up Git into your Mac/PC
+```bash
+git config --global user.name "Your Name"
+git config --global user.email "your.email@example.com"
+git config --global init.defaultBranch main
+git version
+git config --list
+cd path/to/your/project
+git init
+```
+
+Create a github account and set up github account
+
 ```bash
 1. git clone "https://github.com/The-Calculix/CalculixHub.git"
 2. npm install
