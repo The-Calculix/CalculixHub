@@ -15,9 +15,9 @@ git init
 Create a github account and set up github account
 
 ```bash
-1. git clone "https://github.com/The-Calculix/CalculixHub.git"
-2. npm install
-3. npm run dev
+git clone "https://github.com/The-Calculix/CalculixHub.git"
+npm install
+npm run dev
 ```
 Output:
 ```bash
