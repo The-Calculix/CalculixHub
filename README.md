@@ -15,6 +15,16 @@ git init
 Create a github account and set up github account
 
 ```bash
+Go to github and create a new branch in the repo - call it whatever you want
+```
+
+Then, run this command in the terminal
+```bash
+git fetch
+git switch <branch-name-that-you-have-created>
+```
+
+```bash
 git clone "https://github.com/The-Calculix/CalculixHub.git"
 npm install
 npm run dev
