@@ -31,6 +31,7 @@ import Community from './components/Community';
 import Profile from './components/Profile';
 import AITutorChat from './components/AITutorChat';
 import WelcomeScreen from './components/WelcomeScreen';
+import { supabase, isSupabaseConfigured } from './lib/supabaseClient';
 
 const DISCUSSION_CLEANUP_KEY = 'calculix_discussions_demo_cleanup_v1';
 const LEGACY_DEMO_DISCUSSION_IDS = new Set(['disc-1', 'disc-2']);
@@ -55,8 +56,18 @@ export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(() => sessionStorage.getItem('calculix_is_logged_in') === 'true');
 
   const handleLoginSuccess = (name: string, level: Level) => {
+    const authUserId = supabase?.auth.getUser ? undefined : undefined;
     sessionStorage.setItem('calculix_is_logged_in', 'true');
     sessionStorage.setItem('calculix_user_name', name);
+    if (isSupabaseConfigured() && supabase) {
+      supabase.auth.getSession().then(({ data }) => {
+        const userId = data.session?.user?.id;
+        if (userId) {
+          sessionStorage.setItem('calculix_user_id', userId);
+          localStorage.setItem('calculix_user_id', userId);
+        }
+      });
+    }
     setIsLoggedIn(true);
 
     // Update user difficulty index as requested in the onboarding profile form
@@ -70,7 +81,10 @@ export default function App() {
   const handleLogout = () => {
     sessionStorage.removeItem('calculix_is_logged_in');
     sessionStorage.removeItem('calculix_user_name');
+    sessionStorage.removeItem('calculix_user_id');
     localStorage.removeItem('calculix_is_logged_in');
+    localStorage.removeItem('calculix_user_name');
+    localStorage.removeItem('calculix_user_id');
     localStorage.removeItem('calculix_user_name');
     localStorage.removeItem('calculix_stats');
     localStorage.removeItem('calculix_completed');

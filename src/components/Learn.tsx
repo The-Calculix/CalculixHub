@@ -7,6 +7,11 @@ import React, { useState, useEffect } from 'react';
 import { BookOpen, CheckCircle, HelpCircle, GraduationCap, ChevronRight, ArrowLeft, RefreshCw, AlertCircle, Award, Sparkles, BookOpenCheck } from 'lucide-react';
 import { Problem, Topic, Level, SmartFeedback, UserStats } from '../types';
 
+function getStoredUserId() {
+  const userId = sessionStorage.getItem('calculix_user_id') || localStorage.getItem('calculix_user_id');
+  return userId || 'guest';
+}
+
 interface LearnProps {
   problems: Problem[];
   completedProblems: string[];
@@ -80,6 +85,9 @@ export default function Learn({
         body: JSON.stringify({
           problemId: activeProblem.id,
           userAnswer: answerInput,
+          userId: getStoredUserId(),
+          subject: activeProblem.topic,
+          skill: activeProblem.title,
         }),
       });
 

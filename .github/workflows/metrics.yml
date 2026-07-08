@@ -2,9 +2,23 @@ name: Metrics
 
 on:
   workflow_dispatch:
+  schedule:
+    - cron: '0 12 * * 1'
 
 jobs:
   metrics:
     runs-on: ubuntu-latest
     steps:
-      - run: echo "Collect project metrics"
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+          cache-dependency-path: package-lock.json
+      - run: npm ci
+      - run: npm run build
+      - run: node -e "const fs=require('fs'); fs.mkdirSync('artifacts',{recursive:true}); fs.writeFileSync('artifacts/metrics.json', JSON.stringify({timestamp:new Date().toISOString(), status:'ok', build:'vite'}, null, 2));"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: metrics-report
+          path: artifacts/metrics.json

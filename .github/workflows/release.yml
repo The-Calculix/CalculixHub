@@ -2,10 +2,23 @@ name: Release
 
 on:
   workflow_dispatch:
+    inputs:
+      version:
+        description: Release version
+        required: true
 
 jobs:
   release:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
-      - run: echo "Create release"
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+          cache-dependency-path: package-lock.json
+      - run: npm ci
+      - run: npm run build
+      - run: echo "Release ${{ github.event.inputs.version }} is ready."
