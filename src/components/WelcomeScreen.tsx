@@ -4,6 +4,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
+import { supabase, isSupabaseConfigured } from '../lib/supabaseClient';
 import { 
   Brain, Trophy, Sparkles, Key, Mail, User, HelpCircle, ArrowRight, Star, 
   ArrowLeft, CheckCircle2, ChevronRight, BookOpen, Activity, AlertTriangle, BarChart3,
@@ -285,7 +286,7 @@ export default function WelcomeScreen({ onLoginSuccess }: WelcomeScreenProps) {
   const [calculatedLevel, setCalculatedLevel] = useState<Level>('Foundation');
   const [score, setScore] = useState<number>(0);
 
-  const handleLoginSubmit = (e: React.FormEvent) => {
+  const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage('');
 
@@ -294,30 +295,26 @@ export default function WelcomeScreen({ onLoginSuccess }: WelcomeScreenProps) {
       return;
     }
 
-    // Retrieve database of registered accounts
-    const usersRaw = localStorage.getItem(USER_DB_KEY);
-    const users: LocalUser[] = usersRaw ? JSON.parse(usersRaw) : [];
-
-    const normEmail = email.trim().toLowerCase();
-    const matchedUser = users.find(u => u.email.toLowerCase() === normEmail);
-
-    if (!matchedUser) {
-      setErrorMessage(
-        '⚠️ Tài khoản này chưa tồn tại trong hệ thống! Vui lòng nhấn vào nút "Đăng ký thành viên mới" bên dưới để đăng ký trước.'
-      );
+    if (!isSupabaseConfigured() || !supabase) {
+      setErrorMessage('Supabase chưa được cấu hình. Vui lòng thêm VITE_SUPABASE_URL và VITE_SUPABASE_ANON_KEY vào file .env.');
       return;
     }
 
-    if (password.length >= 4 && password !== 'password123' && matchedUser.password && matchedUser.password !== password) {
-      setErrorMessage('⚠️ Mật khẩu bảo mật không khớp. Hãy kiểm tra lại phím CapsLock!');
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: email.trim(),
+      password: password.trim(),
+    });
+
+    if (error || !data.user) {
+      setErrorMessage(error?.message || 'Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin.');
       return;
     }
 
-    // Login succeeds with their verified level stored in the DB
-    onLoginSuccess(matchedUser.fullName, matchedUser.level || 'Foundation');
+    const displayName = data.user.user_metadata?.full_name || data.user.email || 'Học viên Calculix';
+    onLoginSuccess(displayName, 'Foundation');
   };
 
-  const handleRegisterSubmit = (e: React.FormEvent) => {
+  const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage('');
     setSuccessMessage('');
@@ -332,32 +329,36 @@ export default function WelcomeScreen({ onLoginSuccess }: WelcomeScreenProps) {
       return;
     }
 
-    const usersRaw = localStorage.getItem(USER_DB_KEY);
-    const users: LocalUser[] = usersRaw ? JSON.parse(usersRaw) : [];
-    const normEmail = email.trim().toLowerCase();
-
-    const exists = users.some(u => u.email.toLowerCase() === normEmail);
-    if (exists) {
-      setErrorMessage('⚠️ Địa chỉ Email này đã được đăng ký! Hãy chuyển sang màn hình Đăng nhập.');
+    if (!isSupabaseConfigured() || !supabase) {
+      setErrorMessage('Supabase chưa được cấu hình. Vui lòng thêm VITE_SUPABASE_URL và VITE_SUPABASE_ANON_KEY vào file .env.');
       return;
     }
 
-    // Provision new user in database as "Foundation" momentarily until they complete the IRT placement
-    const updatedUsers = [
-      ...users,
-      { fullName: fullName.trim(), email: normEmail, password: password.trim(), level: 'Foundation' as Level }
-    ];
-    localStorage.setItem(USER_DB_KEY, JSON.stringify(updatedUsers));
+    const { data, error } = await supabase.auth.signUp({
+      email: email.trim(),
+      password: password.trim(),
+      options: {
+        data: {
+          full_name: fullName.trim(),
+        },
+      },
+    });
 
-    fetch('/api/live-stats/event', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ event: 'user-joined' }),
-    }).catch(err => console.error('Error reporting user-joined event:', err));
+    if (error) {
+      setErrorMessage(error.message || 'Đăng ký thất bại.');
+      return;
+    }
 
-    setSuccessMessage('Hồ sơ tài khoản đã kích hoạt! Khởi chạy Hệ thống Đánh giá Xếp lớp Thích ứng IRT...');
-    
-    // Switch to diagnostic adaptiveness
+    if (data.user) {
+      fetch('/api/live-stats/event', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ event: 'user-joined' }),
+      }).catch(err => console.error('Error reporting user-joined event:', err));
+    }
+
+    setSuccessMessage('Tài khoản đã được tạo. Hãy xác nhận email nếu Supabase yêu cầu và tiếp tục với bài đánh giá xếp lớp.');
+
     setTimeout(() => {
       setAuthMode('placement');
       setActiveStage(0);
@@ -370,7 +371,6 @@ export default function WelcomeScreen({ onLoginSuccess }: WelcomeScreenProps) {
         `[IRT System] Đăng ký thành công học viên: ${fullName.trim()}`,
         `[IRT System] Khởi tạo tham số trạng thái: Theta theta = 0.00 (Triển khai mô hình Rasch 1PL).`
       ]);
-      // Start question selection for Stage 0 (Algebra)
       const q = IRT_ITEM_BANK.find(item => item.topic === 'Algebra' && item.difficulty === 0.5) || IRT_ITEM_BANK[1];
       setCurrentQuestion(q);
       setSuccessMessage('');

@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.5
  */
 
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { AreaChart, Sparkles, TrendingUp, AlertTriangle, BookOpen, Clock, Lightbulb, RefreshCw } from 'lucide-react';
 import { UserStats } from '../types';
 
@@ -12,6 +12,48 @@ interface ProgressViewProps {
 }
 
 export default function ProgressView({ userStats }: ProgressViewProps) {
+  const [liveMetrics, setLiveMetrics] = useState({
+    monthLabel: 'Tháng này',
+    activeLearners: 0,
+    completedSessions: 0,
+    growthRate: 0,
+    focusTopic: 'Algebra',
+    predictedScore: 0,
+    lastUpdated: new Date().toISOString(),
+  });
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const loadMonthlyMetrics = async () => {
+    try {
+      const response = await fetch('/api/analytics/monthly');
+      if (!response.ok) return;
+      const payload = await response.json();
+      setLiveMetrics(payload);
+    } catch {
+      // graceful fallback: keep the existing UI intact
+    }
+  };
+
+  useEffect(() => {
+    let active = true;
+    const refresh = async () => {
+      if (!active) return;
+      setIsRefreshing(true);
+      await loadMonthlyMetrics();
+      if (active) setIsRefreshing(false);
+    };
+
+    void refresh();
+    const interval = window.setInterval(() => {
+      void loadMonthlyMetrics();
+    }, 15000);
+
+    return () => {
+      active = false;
+      window.clearInterval(interval);
+    };
+  }, []);
+
   // Help translate skill names of stats to Viet titles
   const getSubTopicTrans = (key: string) => {
     switch (key) {
@@ -39,6 +81,32 @@ export default function ProgressView({ userStats }: ProgressViewProps) {
   // Logic: find weakest area dynamically based on metrics
   const sortedSkills = [...skillEntries].sort((a, b) => a[1] - b[1]);
   const weakestSkill = sortedSkills[0];
+
+  const chartData = useMemo(() => {
+    if (userStats.learningTimeline?.length) {
+      return userStats.learningTimeline;
+    }
+
+    return [
+      { date: 'Mon', points: 40, accuracy: 70 },
+      { date: 'Tue', points: 72, accuracy: 74 },
+      { date: 'Wed', points: 96, accuracy: 78 },
+      { date: 'Thu', points: 118, accuracy: 82 },
+      { date: 'Fri', points: 140, accuracy: 85 },
+      { date: 'Sat', points: 164, accuracy: 88 },
+      { date: 'Sun', points: 188, accuracy: 91 },
+    ];
+  }, [userStats.learningTimeline]);
+
+  const maxPoint = Math.max(...chartData.map((item) => item.points), 1);
+  const points = chartData.map((item, index) => {
+    const x = 60 + index * 95;
+    const y = 190 - (item.points / maxPoint) * 140;
+    return { ...item, x, y };
+  });
+  const linePath = points.map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x} ${point.y}`).join(' ');
+  const areaPath = `${linePath} L ${points[points.length - 1].x} 190 L ${points[0].x} 190 Z`;
+  const lastPoint = points[points.length - 1];
 
   return (
     <div className="space-y-8 animate-in fade-in duration-300">
@@ -156,78 +224,68 @@ export default function ProgressView({ userStats }: ProgressViewProps) {
 
       {/* (3) Learning Timeline visualized dynamically */}
       <div className="bg-white border border-slate-100 rounded-3xl p-6 shadow-xs space-y-5 pb-8">
-        <div className="space-y-1">
-          <h2 className="text-base font-extrabold text-slate-950 flex items-center gap-2">
-            <AreaChart className="w-5 h-5 text-slate-700" /> Tiến Trình Tiến Bộ Theo Thời Gian (Learning Timeline)
-          </h2>
-          <p className="text-[11px] text-slate-500 leading-relaxed">
-            Biểu diễn điểm kinh nghiệm tích lũy của học sinh trong vòng 7 ngày qua.
-          </p>
+        <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+          <div className="space-y-1">
+            <h2 className="text-base font-extrabold text-slate-950 flex items-center gap-2">
+              <AreaChart className="w-5 h-5 text-slate-700" /> Tiến Trình Tiến Bộ Theo Thời Gian (Learning Timeline)
+            </h2>
+            <p className="text-[11px] text-slate-500 leading-relaxed">
+              Quy trình học tập được cập nhật liên tục và phản ánh đúng nhịp tăng trưởng thực tế của bạn.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => { void loadMonthlyMetrics(); }}
+            className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-2 text-[11px] font-semibold text-slate-700 transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
+            {isRefreshing ? 'Đang đồng bộ...' : 'Cập nhật ngay'}
+          </button>
         </div>
 
-        {/* Dynamic Responsive SVG Line Chart representing the Progress Line Chart */}
+        <div className="grid gap-3 md:grid-cols-3">
+          <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+            <p className="text-[10px] uppercase tracking-[0.24em] text-slate-400">Tháng</p>
+            <p className="mt-2 text-sm font-black text-slate-900">{liveMetrics.monthLabel}</p>
+            <p className="mt-1 text-[11px] text-slate-500">Tăng trưởng được theo dõi theo thời gian thực.</p>
+          </div>
+          <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+            <p className="text-[10px] uppercase tracking-[0.24em] text-slate-400">Học viên đang hoạt động</p>
+            <p className="mt-2 text-sm font-black text-slate-900">{liveMetrics.activeLearners.toLocaleString('vi-VN')}</p>
+            <p className="mt-1 text-[11px] text-slate-500">Đang tích cực luyện tập trên hệ thống.</p>
+          </div>
+          <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+            <p className="text-[10px] uppercase tracking-[0.24em] text-slate-400">Tập trung tháng</p>
+            <p className="mt-2 text-sm font-black text-slate-900">{liveMetrics.focusTopic}</p>
+            <p className="mt-1 text-[11px] text-slate-500">Điểm chuẩn kỳ vọng {liveMetrics.predictedScore}%.</p>
+          </div>
+        </div>
+
         <div className="w-full h-64 border border-slate-100 rounded-2xl bg-slate-50/50 p-4 relative">
           <svg className="w-full h-full" viewBox="0 0 700 220" preserveAspectRatio="none">
-            {/* Grids helper lines */}
             <line x1="50" y1="30" x2="650" y2="30" stroke="#f1f5f9" strokeWidth="1" />
             <line x1="50" y1="80" x2="650" y2="80" stroke="#f1f5f9" strokeWidth="1" />
             <line x1="50" y1="130" x2="650" y2="130" stroke="#f1f5f9" strokeWidth="1" />
-            <line x1="50" y1="180" x2="650" y2="180" stroke="#f1f5f9" strokeWidth="1" />
-
-            {/* X Axis & Y Axis lines */}
             <line x1="50" y1="180" x2="650" y2="180" stroke="#e2e8f0" strokeWidth="1.5" />
             <line x1="50" y1="30" x2="50" y2="180" stroke="#e2e8f0" strokeWidth="1.5" />
 
-            {/* Plot path logic: date timeline points represent user stats timeline */}
-            {/* Points: 
-                T-6: 50,180 (diference coordinates mapping)
-                T-5: 150,165 
-                T-4: 250,150 
-                T-3: 350,130 
-                T-2: 450,110 
-                T-1: 550,90 
-                Live: 650,40
-            */}
-            <path
-              d="M 50,180 L 150,162 L 250,145 L 350,120 L 450,105 L 550,85 L 650,35"
-              fill="none"
-              stroke="#4f46e5"
-              strokeWidth="2.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
+            <path d={areaPath} fill="url(#chartGradient)" opacity="0.12" />
+            <path d={linePath} fill="none" stroke="#4f46e5" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
 
-            {/* Gradient shadow filled area inside chart */}
-            <path
-              d="M 50,180 L 150,162 L 250,145 L 350,120 L 450,105 L 550,85 L 650,35 L 650,180 Z"
-              fill="url(#chartGradient)"
-              opacity="0.1"
-            />
+            {points.map((point) => (
+              <g key={point.date}>
+                <circle cx={point.x} cy={point.y} r="4.5" fill="#4f46e5" stroke="#fff" strokeWidth="1.5" />
+                <text x={point.x} y="205" textAnchor="middle" className="text-[10px] font-bold fill-slate-400 font-mono">{point.date}</text>
+              </g>
+            ))}
 
-            {/* Scatter points dots marker */}
-            <circle cx="50" cy="180" r="4.5" fill="#4f46e5" stroke="#fff" strokeWidth="1.5" />
-            <circle cx="150" cy="162" r="4.5" fill="#4f46e5" stroke="#fff" strokeWidth="1.5" />
-            <circle cx="250" cy="145" r="4.5" fill="#4f46e5" stroke="#fff" strokeWidth="1.5" />
-            <circle cx="350" cy="120" r="4.5" fill="#4f46e5" stroke="#fff" strokeWidth="1.5" />
-            <circle cx="450" cy="105" r="4.5" fill="#4f46e5" stroke="#fff" strokeWidth="1.5" />
-            <circle cx="550" cy="85" r="4.5" fill="#4f46e5" stroke="#fff" strokeWidth="1.5" />
-            <circle cx="650" cy="35" r="4.5" fill="#4f46e5" stroke="#fff" strokeWidth="1.5" />
-
-            {/* Grid Coordinates Labels text indicators */}
-            {/* Y axis numbers label */}
-            <text x="15" y="34" className="text-[10px] font-bold fill-slate-400 font-mono">500 pts</text>
-            <text x="15" y="84" className="text-[10px] font-bold fill-slate-400 font-mono">300 pts</text>
-            <text x="15" y="134" className="text-[10px] font-bold fill-slate-400 font-mono">100 pts</text>
+            <text x="15" y="34" className="text-[10px] font-bold fill-slate-400 font-mono">{maxPoint} pts</text>
+            <text x="15" y="84" className="text-[10px] font-bold fill-slate-400 font-mono">{Math.round(maxPoint * 0.6)} pts</text>
+            <text x="15" y="134" className="text-[10px] font-bold fill-slate-400 font-mono">{Math.round(maxPoint * 0.3)} pts</text>
             <text x="15" y="184" className="text-[10px] font-bold fill-slate-400 font-mono">0 pts</text>
-
-            {/* X axis dates timeline label */}
-            <text x="50" y="198" textAnchor="middle" className="text-[10px] font-bold fill-slate-400 font-mono">16 Thứ Hai</text>
-            <text x="150" y="198" textAnchor="middle" className="text-[10px] font-bold fill-slate-400 font-mono">17 Thứ Ba</text>
-            <text x="250" y="198" textAnchor="middle" className="text-[10px] font-bold fill-slate-400 font-mono">18 Thứ Tư</text>
-            <text x="350" y="198" textAnchor="middle" className="text-[10px] font-bold fill-slate-400 font-mono">19 Thứ Năm</text>
-            <text x="450" y="198" textAnchor="middle" className="text-[10px] font-bold fill-slate-400 font-mono">20 Thứ Sáu</text>
-            <text x="550" y="198" textAnchor="middle" className="text-[10px] font-bold fill-slate-400 font-mono">21 Thứ Bảy</text>
-            <text x="650" y="198" textAnchor="middle" className="text-[10px] font-bold fill-slate-400 font-mono">Hôm Nay</text>
+            <text x="620" y="28" className="text-[10px] font-bold fill-indigo-600 font-mono">Live • {liveMetrics.growthRate}%</text>
+            <text x="600" y="44" className="text-[10px] font-bold fill-slate-400 font-mono">{lastPoint.points} pts</text>
 
             <defs>
               <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
